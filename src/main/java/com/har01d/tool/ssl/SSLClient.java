@@ -1,29 +1,26 @@
 package com.har01d.tool.ssl;
 
+import com.har01d.tool.jarg.JCommand;
+import com.har01d.tool.jarg.JOption;
+import com.har01d.tool.jarg.Jarg;
+
+import javax.net.ssl.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLHandshakeException;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-
-import com.har01d.tool.jarg.JCommand;
-import com.har01d.tool.jarg.JOption;
-import com.har01d.tool.jarg.Jarg;
-
 public class SSLClient {
 
-    private String host = "localhost";
-    private Integer port = 443;
+    private String host;
+    private Integer port;
     private String protocol = "TLS";
+    private String data;
     private List<String> ciphers;
 
     private boolean quiet;
@@ -40,11 +37,8 @@ public class SSLClient {
         acceptSelfSign = connect.isPresent("self");
         acceptAll = connect.isPresent("all");
         printCert = connect.isPresent("print-cert");
-        if (connect.isPresent("host")) {
-            host = connect.getValue("host");
-        }
-        if (connect.isPresent("port")) {
-            port = connect.getIntValue("port");
+        if (connect.isPresent("data")) {
+            data = connect.getValue("data");
         }
         if (connect.isPresent("ciphers")) {
             ciphers = connect.getStringValues("ciphers");
@@ -83,17 +77,14 @@ public class SSLClient {
             }
         }
 
-        if (jarg.getArguments().size() == 1) {
-            port = Integer.parseInt(jarg.getArgument(0));
-        } else if (jarg.getArguments().size() == 2) {
-            host = jarg.getArgument(0);
-            port = Integer.parseInt(jarg.getArgument(1));
-        }
+        host = jarg.getArgument("host");
+        port = Integer.parseInt(jarg.getArgument("port"));
     }
 
     public static void main(String[] args) throws IOException {
         Jarg jarg = new Jarg("ssl-client", "Java SSL client");
-        jarg.setAutoHelp(true);
+        jarg.addSection(Jarg.AUTHOR, "Harold Li");
+        jarg.autoHelp();
         jarg.addOption("--verbose|-v", "Show verbose message", false);
         jarg.addOption("--quiet|-q", "No output", false);
         jarg.addCommand("help", "Show the help text");
@@ -106,28 +97,25 @@ public class SSLClient {
         connect.addOption("--print-cert", "Print the server certificate", false);
         connect.addOption("--ciphers", "A comma-separated list of SSL/TLS ciphers");
         connect.addOption("--keystore|-k", "The keystore file");
-        connect.addOption("--keystore-type|-kt", "The keystore type");
-        connect.addOption("--keystore-password|-kp", "The keystore password");
+        connect.addOption("--keystore-type", "The keystore type");
+        connect.addOption("--keystore-password", "The keystore password");
         connect.addOption("--truststore|-t", "The truststore file");
-        connect.addOption("--truststore-type|-tt", "The truststore type");
-        connect.addOption("--truststore-password|-tp", "The truststore password");
+        connect.addOption("--truststore-type", "The truststore type");
+        connect.addOption("--truststore-password", "The truststore password");
         options.add(connect.addOption("-2|--sslv2", "Use SSLv2", false));
         options.add(connect.addOption("-3|--sslv3", "Use SSLv3", false));
         options.add(connect.addOption("-1|--tlsv1", "Use => TLSv1 (Default)", false));
         options.add(connect.addOption("--tlsv1.0", "Use TLSv1.0", false));
         options.add(connect.addOption("--tlsv1.1", "Use TLSv1.1", false));
         options.add(connect.addOption("--tlsv1.2", "Use TLSv1.2", false));
-        connect.addOption("--host|-h", "The SSL server hostname or address").setValueName("HOST");
-        connect.addOption("--port|-p", "The SSL server port").setValueName("PORT");
+        connect.addOption("--data|-d", "Send data to server");
+        connect.addParameter("host").required();
+        connect.addParameter("port").required();
         jarg.addCommand("ciphers", "Show the supported cipher suites").addOptions(options);
         jarg.addCommand("test-ciphers", "Test which ciphers work").addOptions(connect.getOptions());
 
         jarg.parse(args);
-        JCommand command = jarg.getCommand();
-        if (command == null) {
-            jarg.printHelp(System.out);
-            System.exit(1);
-        }
+        JCommand command = jarg.requireCommand();
 
         switch (command.getName()) {
             case "version":
@@ -179,8 +167,9 @@ public class SSLClient {
         }
 
         try (SSLSocket sslSocket = (SSLSocket) factory.createSocket(host, port);
-                                        BufferedReader in = new BufferedReader(new InputStreamReader(
-                                                                        sslSocket.getInputStream()))) {
+             OutputStream os = sslSocket.getOutputStream();
+             BufferedReader in = new BufferedReader(new InputStreamReader(
+                     sslSocket.getInputStream()))) {
 
             if (ciphers != null) {
                 if (!quiet) {
@@ -202,9 +191,16 @@ public class SSLClient {
                 }
             }
 
+            if (data != null) {
+                os.write(data.getBytes(StandardCharsets.UTF_8));
+            }
+
             String line;
-            while ((line = in.readLine()) != null) {
-                System.out.println(line);
+            if (!quiet) {
+                System.out.println("Response:");
+                while ((line = in.readLine()) != null) {
+                    System.out.println(line);
+                }
             }
         }
     }
@@ -240,9 +236,9 @@ public class SSLClient {
         }
     }
 
-    private boolean testCipherSuite(SSLSocketFactory factory, String cipher) throws SSLHandshakeException {
+    private boolean testCipherSuite(SSLSocketFactory factory, String cipher) throws IOException {
         try (SSLSocket sslSocket = (SSLSocket) factory.createSocket(host, port)) {
-            sslSocket.setEnabledCipherSuites(new String[] {cipher});
+            sslSocket.setEnabledCipherSuites(new String[]{cipher});
             sslSocket.startHandshake();
         } catch (SSLHandshakeException e) {
             if (e.getCause() instanceof sun.security.validator.ValidatorException) {
@@ -250,6 +246,8 @@ public class SSLClient {
             } else {
                 return false;
             }
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
             return false;
         }
@@ -275,7 +273,7 @@ public class SSLClient {
     private SSLContext getEasySSLContext() throws IOException {
         try {
             SSLContext context = SSLContext.getInstance(protocol);
-            context.init(null, new TrustManager[] {new AcceptSelfSignedTrustManager(null)}, null);
+            context.init(null, new TrustManager[]{new AcceptSelfSignedTrustManager(null)}, null);
             return context;
         } catch (Exception e) {
             throw new IOException(e);
@@ -285,7 +283,7 @@ public class SSLClient {
     private SSLContext getNoopSSLContext() throws IOException {
         try {
             SSLContext context = SSLContext.getInstance(protocol);
-            context.init(null, new TrustManager[] {new NoopTrustManager()}, null);
+            context.init(null, new TrustManager[]{new NoopTrustManager()}, null);
             return context;
         } catch (Exception e) {
             throw new IOException(e);
