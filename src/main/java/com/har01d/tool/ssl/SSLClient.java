@@ -114,8 +114,13 @@ public class SSLClient {
         jarg.addCommand("ciphers", "Show the supported cipher suites").addOptions(options);
         jarg.addCommand("test-ciphers", "Test which ciphers work").addOptions(connect.getOptions());
 
-        jarg.parse(args);
-        JCommand command = jarg.requireCommand();
+        JCommand command = null;
+        try {
+            jarg.parse(args);
+            command = jarg.requireCommand();
+        } catch (Exception e) {
+            jarg.handleError(e);
+        }
 
         switch (command.getName()) {
             case "version":

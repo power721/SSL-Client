@@ -49,6 +49,19 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>com.har01d.maven</groupId>
+                <artifactId>executable-maven-plugin</artifactId>
+                <version>0.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>gen-exec</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
