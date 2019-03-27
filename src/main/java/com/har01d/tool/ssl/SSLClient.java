@@ -9,6 +9,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class SSLClient {
 
     private boolean quiet;
     private boolean debug;
+    private boolean verbose;
     private boolean acceptAll;
     private boolean acceptSelfSign;
     private boolean printCert;
@@ -32,7 +34,8 @@ public class SSLClient {
     public SSLClient(Jarg jarg) {
         JCommand connect = jarg.getCommand();
         quiet = jarg.isPresent("quiet");
-        debug = !quiet && jarg.isPresent("verbose");
+        debug = !quiet && jarg.isPresent("debug");
+        verbose = !quiet && jarg.isPresent("verbose");
 
         acceptSelfSign = connect.isPresent("self");
         acceptAll = connect.isPresent("all");
@@ -85,6 +88,7 @@ public class SSLClient {
         Jarg jarg = new Jarg("ssl-client", "Java SSL client");
         jarg.addSection(Jarg.AUTHOR, "Harold Li");
         jarg.autoHelp();
+        jarg.addOption("--debug|-d", "Show debug message", false);
         jarg.addOption("--verbose|-v", "Show verbose message", false);
         jarg.addOption("--quiet|-q", "No output", false);
         jarg.addCommand("help", "Show the help text");
@@ -161,11 +165,24 @@ public class SSLClient {
     }
 
     private void connect() throws IOException {
-        if (debug) {
+        if (verbose) {
+            System.setProperty("javax.net.debug", "all");
+        } else if (debug) {
             System.setProperty("javax.net.debug", "ssl");
         }
 
         SSLSocketFactory factory = getSslSocketFactory();
+
+        if (verbose) {
+            try {
+                InetAddress[] addresses = InetAddress.getAllByName(host);
+                for (InetAddress address : addresses) {
+                    System.out.println(address);
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
 
         if (!quiet) {
             System.out.println("Connecting... to " + host + ":" + port);
