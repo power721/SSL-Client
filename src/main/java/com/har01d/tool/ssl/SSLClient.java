@@ -148,9 +148,9 @@ public class SSLClient {
     }
 
     private static void printJavaInfo() {
-        System.out.println(System.getProperty("java.version"));
-        System.out.println(System.getProperty("java.runtime.version"));
-        System.out.println(System.getProperty("java.home"));
+        System.out.println("Java: " + System.getProperty("java.version"));
+        System.out.println("Java Runtime: " + System.getProperty("java.runtime.version"));
+        System.out.println("Java Home: " + System.getProperty("java.home"));
     }
 
     private void listCiphers() throws IOException {
