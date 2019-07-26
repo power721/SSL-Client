@@ -116,7 +116,7 @@ public class SSLClient {
         connect.addParameter("host").required();
         connect.addParameter("port").required();
         jarg.addCommand("ciphers", "Show the supported cipher suites").addOptions(options);
-        jarg.addCommand("test-ciphers", "Test which ciphers work").addOptions(connect.getOptions()).addParameters(connect.getParameters());
+        jarg.cloneCommand("connect", "test-ciphers", "Test which ciphers work");
 
         JCommand command = null;
         try {
